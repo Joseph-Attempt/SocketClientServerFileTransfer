@@ -94,23 +94,51 @@ int main(int argc, char **argv) {
 
     /* get a message from the user */
     bzero(buf, BUFSIZE);
-    display_menu();
 
-    //might need to do checking if the message is too long (altough the message shouldn't be)
-    fgets(buf, BUFSIZE, stdin);
-    printf("the value you entered is: %s", buf);
+    while (1) {
+      display_menu();
+      fgets(buf, BUFSIZE, stdin);
+      printf("\nthe value you entered: %s\n", buf);
 
-    /* send the message to the server */
-    serverlen = sizeof(serveraddr);
-    n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
-    if (n < 0) 
-      error("ERROR in sendto");
+      buf[strcspn(buf, "\n")] = 0;
+      
+      if (strcmp(buf, "exit") == 0){
+        printf("Breaking While");
+        exit(0); //take out
+        break;
+      } else if (strcmp(buf, "ls") == 0){
+        printf("in ls\n");
+      }else if (strncmp(buf, "get", 3 )== 0){
+        printf("in get\n");
+      }else if (strncmp(buf, "put", 3) == 0){
+        printf("in put\n");
+      }else if (strncmp(buf, "delete", 6) == 0){
+        printf("in delete\n");
+      }
+      
+      //might need to do checking if the message is too long (altough the message shouldn't be)
+
+      /* send the message to the server */
+      serverlen = sizeof(serveraddr);
+      n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
+      if (n < 0) 
+        error("ERROR in sendto");
+      
+      /* print the server's reply */
+      n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
+      if (n < 0) 
+        error("ERROR in recvfrom");
+      
+      printf("Echo from server: %s", buf);
+
+
+    }
     
-    /* print the server's reply */
-    n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
-    if (n < 0) 
-      error("ERROR in recvfrom");
-    
-    printf("Echo from server: %s", buf);
+
     return 0;
 }
+
+
+// gcc udp_client.c -o client -g
+
+// gdb --args ./client 127.0.0.1 5001
