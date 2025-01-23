@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (sockfd < 0) 
-        error("ERROR opening socket");
+        error("ERROR opening socket\n");
 
     /* gethostbyname: get the server's DNS entry */
     server = gethostbyname(hostname);
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
       buf[strcspn(buf, "\n")] = 0;
       
       if (strcmp(buf, "exit") == 0){
-        printf("Breaking While");
+        printf("Breaking While\n");
         exit(0); //take out
         break;
       } else if (strcmp(buf, "ls") == 0){
@@ -122,14 +122,14 @@ int main(int argc, char **argv) {
       serverlen = sizeof(serveraddr);
       n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
       if (n < 0) 
-        error("ERROR in sendto");
+        error("ERROR in sendto\n");
       
       /* print the server's reply */
       n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
       if (n < 0) 
-        error("ERROR in recvfrom");
+        error("ERROR in recvfrom\n");
       
-      printf("Echo from server: %s", buf);
+      printf("Echo from server: %s\n", buf);
 
 
     }

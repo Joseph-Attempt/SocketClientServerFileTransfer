@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
-
+  printf("After Variable Initializations\n");
   /* 
    * check command line arguments 
    */
@@ -70,8 +70,9 @@ int main(int argc, char **argv) {
    * socket: create the parent socket 
    */
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
   if (sockfd < 0) 
-    error("ERROR opening socket");
+    error("ERROR opening socket\n");
 
   /* setsockopt: Handy debugging trick that lets 
    * us rerun the server immediately after we kill it; 
@@ -93,38 +94,57 @@ int main(int argc, char **argv) {
   /* 
    * bind: associate the parent socket with a port 
    */
-  if (bind(sockfd, (struct sockaddr *) &serveraddr, 
-	   sizeof(serveraddr)) < 0) 
-    error("ERROR on binding");
+  if (bind(sockfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0) 
+    error("ERROR on binding\n");
 
   /* 
    * main loop: wait for a datagram, then echo it
    */
   clientlen = sizeof(clientaddr);
+
   while (1) {
 
     /*
      * recvfrom: receive a UDP datagram from a client
      */
+    printf("IN WHILE\n");
     bzero(buf, BUFSIZE);
-    n = recvfrom(sockfd, buf, BUFSIZE, 0,
-		 (struct sockaddr *) &clientaddr, &clientlen);
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
+  
     if (n < 0)
-      error("ERROR in recvfrom");
+      error("ERROR in recvfrom\n");
 
+    printf("buf: %s\n", buf);
+      if (strcmp(buf, "exit") == 0){
+        printf("Breaking While\n");
+        exit(0); //take out
+        break;
+      } else if (strcmp(buf, "ls") == 0){
+        printf("server side: ls\n");
+        system("ls");
+
+      }else if (strncmp(buf, "get", 3 )== 0){
+        printf("in get\n");
+      }else if (strncmp(buf, "put", 3) == 0){
+        printf("in put\n");
+      }else if (strncmp(buf, "delete", 6) == 0){
+        printf("in delete\n");
+      }
     /* 
      * gethostbyaddr: determine who sent the datagram
      */
-    hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, 
-			  sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+    hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+
     if (hostp == NULL)
-      error("ERROR on gethostbyaddr");
+      error("ERROR on gethostbyadd\n");
+
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
+
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
-    printf("server received datagram from %s (%s)\n", 
-	   hostp->h_name, hostaddrp);
-    printf("server received %d/%d bytes: %s\n", strlen(buf), n, buf);
+    
+    printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
+    printf("server received %ld/%d bytes: %s\n", strlen(buf), n, buf);
     
     /* 
      * sendto: echo the input back to the client 
@@ -132,6 +152,6 @@ int main(int argc, char **argv) {
     n = sendto(sockfd, buf, strlen(buf), 0, 
 	       (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
-      error("ERROR in sendto");
+      error("ERROR in sendto\n");
   }
 }
