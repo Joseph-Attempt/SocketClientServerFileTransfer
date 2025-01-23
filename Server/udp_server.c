@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
-  printf("After Variable Initializations\n");
+  FILE *server_response;
   /* 
    * check command line arguments 
    */
@@ -107,29 +107,13 @@ int main(int argc, char **argv) {
     /*
      * recvfrom: receive a UDP datagram from a client
      */
-    printf("IN WHILE\n");
     bzero(buf, BUFSIZE);
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
   
     if (n < 0)
       error("ERROR in recvfrom\n");
 
-    printf("buf: %s\n", buf);
-      if (strcmp(buf, "exit") == 0){
-        printf("Breaking While\n");
-        exit(0); //take out
-        break;
-      } else if (strcmp(buf, "ls") == 0){
-        printf("server side: ls\n");
-        system("ls");
 
-      }else if (strncmp(buf, "get", 3 )== 0){
-        printf("in get\n");
-      }else if (strncmp(buf, "put", 3) == 0){
-        printf("in put\n");
-      }else if (strncmp(buf, "delete", 6) == 0){
-        printf("in delete\n");
-      }
     /* 
      * gethostbyaddr: determine who sent the datagram
      */
@@ -142,6 +126,52 @@ int main(int argc, char **argv) {
 
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
+
+
+    if (strcmp(buf, "exit") == 0){
+      printf("Breaking While\n");
+      exit(0); //take out
+      break;
+    } else if (strcmp(buf, "ls") == 0){
+      //CITATION popen: https://stackoverflow.com/questions/12005902/c-program-linux-get-command-line-output-to-a-variable-and-filter-data 
+
+      // bzero(buf, BUFSIZE);
+      server_response = popen("ls", "r");
+      
+      if(!server_response) {
+          fprintf(stderr, "Error attempting to use ls.\n");
+          return 1;
+      }
+      
+      while (fgets(buf, sizeof(buf), server_response) != NULL) {
+          // Process the line stored in 'buffer'
+
+          printf("buf: %s, strlen(buf): %ld\n", buf, strlen(buf));
+          n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+          
+          if (n < 0) {
+            error("ERROR in sendto\n");
+          } 
+          // bzero(buf, BUFSIZE);
+
+            
+      }
+      
+      strcpy(buf, "end");
+      n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+
+      if (pclose(server_response) == -1) {
+          fprintf(stderr," Error!\n");
+          return 1;
+      }
+
+    }else if (strncmp(buf, "get", 3 )== 0){
+      printf("in get\n");
+    }else if (strncmp(buf, "put", 3) == 0){
+      printf("in put\n");
+    }else if (strncmp(buf, "delete", 6) == 0){
+      printf("in delete\n");
+    }
     
     printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
     printf("server received %ld/%d bytes: %s\n", strlen(buf), n, buf);
@@ -149,9 +179,10 @@ int main(int argc, char **argv) {
     /* 
      * sendto: echo the input back to the client 
      */
-    n = sendto(sockfd, buf, strlen(buf), 0, 
-	       (struct sockaddr *) &clientaddr, clientlen);
+    n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+    
     if (n < 0) 
       error("ERROR in sendto\n");
+
   }
 }

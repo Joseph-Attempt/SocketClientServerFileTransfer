@@ -27,7 +27,8 @@ int display_menu(void){
       "put [file_name]\n"
       "delete [file_name]\n"
       "ls\n"
-      "exit\n");
+      "exit\n\n"
+      "Your input: ");
       return 0;
 }
 
@@ -98,7 +99,6 @@ int main(int argc, char **argv) {
     while (1) {
       display_menu();
       fgets(buf, BUFSIZE, stdin);
-      printf("\nthe value you entered: %s\n", buf);
 
       buf[strcspn(buf, "\n")] = 0;
       
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
         exit(0); //take out
         break;
       } else if (strcmp(buf, "ls") == 0){
-        printf("in ls\n");
+        // printf("in ls\n");
       }else if (strncmp(buf, "get", 3 )== 0){
         printf("in get\n");
       }else if (strncmp(buf, "put", 3) == 0){
@@ -125,6 +125,21 @@ int main(int argc, char **argv) {
         error("ERROR in sendto\n");
       
       /* print the server's reply */
+      while (1) {
+        n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
+        if (n < 0) { 
+          error("ERROR in recvfrom\n");
+        }
+
+        printf("buf: %s, strlen(buf): %ld\n", buf, strlen(buf));
+
+
+        if (strcmp(buf, "end") == 0) {
+          break;
+        }
+
+      }
+      
       n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
       if (n < 0) 
         error("ERROR in recvfrom\n");
