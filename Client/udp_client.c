@@ -174,7 +174,36 @@ int main(int argc, char **argv) {
         fclose(fp);
 
       }else if (strncmp(buf, "put", 3) == 0){
+
         printf("in put\n");
+        position = 4;
+        strncpy(filename, buf + position, strlen(buf) - position + 1);
+        fp = fopen(filename, "r");
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        
+        bzero(buf, BUFSIZE);
+
+        while (fgets(buf, BUFSIZE, fp)){
+          printf("Reading Value from file: %s", buf);
+          n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+          if (n < 0) {
+            error("ERROR in sendto\n");
+          } 
+          
+          bzero(buf, BUFSIZE);
+
+        } 
+
+        fclose(fp);
+        strcpy(buf, "end");
+        
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        if (n < 0) {
+          error("ERROR in sendto\n");
+        } 
+
+        bzero(buf, BUFSIZE);
+
 
       }else if (strncmp(buf, "delete", 6) == 0){
         printf("in delete\n");

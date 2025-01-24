@@ -208,6 +208,37 @@ int main(int argc, char **argv) {
     }else if (strncmp(buf, "put", 3) == 0){
 
       printf("in put\n");
+      position = 4;
+      strncpy(filename, buf + position, strlen(buf) - position + 1);
+      fp = fopen(filename, "w");
+      // bzero(buf, BUFSIZE);
+      // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+      
+      if (n < 0){ 
+        error("ERROR in sendto\n");
+      }
+      bzero(buf, BUFSIZE);
+
+      while (1) {
+        n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
+        
+        if (n < 0){ 
+          error("ERROR in recvfrom\n");
+        }
+        
+        printf("Value Being Read from File: %s", buf);
+        
+        if (strcmp(buf, "end") == 0) {
+          printf("\n");
+          break;
+        }
+        
+        fputs(buf, fp);
+        bzero(buf, BUFSIZE);
+
+      }
+      
+      fclose(fp);
 
 
     }else if (strncmp(buf, "delete", 6) == 0){
