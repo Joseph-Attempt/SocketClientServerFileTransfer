@@ -41,11 +41,44 @@ int list_server_directory_content(void){
 }
 
 
-int get_file_in_server_directory(void){
+int get_file_from_server_directory(void){
   return 0;
 }
 
-int put_file_in_server_directory(void){
+int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+        int n;
+        int position = 4;
+        char filename[40];
+        FILE *fp;
+
+        strncpy(filename, buf + position, strlen(buf) - position + 1);
+        fp = fopen(filename, "r");
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        
+        bzero(buf, BUFSIZE);
+
+        while (fgets(buf, BUFSIZE, fp)){
+          printf("Reading Value from file: %s", buf);
+          n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+          if (n < 0) {
+            error("ERROR in sendto\n");
+          } 
+          
+          bzero(buf, BUFSIZE);
+
+        } 
+
+        fclose(fp);
+        strcpy(buf, "end");
+        
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        
+        if (n < 0) {
+          error("ERROR in sendto\n");
+        } 
+
+        bzero(buf, BUFSIZE);
+
   return 0;
 }
 
@@ -174,35 +207,38 @@ int main(int argc, char **argv) {
         fclose(fp);
 
       }else if (strncmp(buf, "put", 3) == 0){
-
+      // int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+        
         printf("in put\n");
-        position = 4;
-        strncpy(filename, buf + position, strlen(buf) - position + 1);
-        fp = fopen(filename, "r");
-        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        put_file_in_server_directory(buf, sockfd, serverlen, serveraddr);
+                
+        // position = 4;
+        // strncpy(filename, buf + position, strlen(buf) - position + 1);
+        // fp = fopen(filename, "r");
+        // n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
-        bzero(buf, BUFSIZE);
+        // bzero(buf, BUFSIZE);
 
-        while (fgets(buf, BUFSIZE, fp)){
-          printf("Reading Value from file: %s", buf);
-          n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-          if (n < 0) {
-            error("ERROR in sendto\n");
-          } 
+        // while (fgets(buf, BUFSIZE, fp)){
+        //   printf("Reading Value from file: %s", buf);
+        //   n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        //   if (n < 0) {
+        //     error("ERROR in sendto\n");
+        //   } 
           
-          bzero(buf, BUFSIZE);
+        //   bzero(buf, BUFSIZE);
 
-        } 
+        // } 
 
-        fclose(fp);
-        strcpy(buf, "end");
+        // fclose(fp);
+        // strcpy(buf, "end");
         
-        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        if (n < 0) {
-          error("ERROR in sendto\n");
-        } 
+        // n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        // if (n < 0) {
+        //   error("ERROR in sendto\n");
+        // } 
 
-        bzero(buf, BUFSIZE);
+        // bzero(buf, BUFSIZE);
 
 
       }else if (strncmp(buf, "delete", 6) == 0){
