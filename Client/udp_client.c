@@ -95,7 +95,8 @@ int main(int argc, char **argv) {
 
     /* get a message from the user */
     bzero(buf, BUFSIZE);
-
+    /* send the message to the server */
+    serverlen = sizeof(serveraddr);
     while (1) {
       display_menu();
       fgets(buf, BUFSIZE, stdin);
@@ -103,11 +104,35 @@ int main(int argc, char **argv) {
       buf[strcspn(buf, "\n")] = 0;
       
       if (strcmp(buf, "exit") == 0){
-        printf("Breaking While\n");
-        exit(0); //take out
+        //Will need to consider data dropping over the network
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
+        printf("Server Response to Client Exit: %s\n", buf);
         break;
       } else if (strcmp(buf, "ls") == 0){
-        // printf("in ls\n");
+        
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        
+        if (n < 0) 
+          error("ERROR in sendto\n");
+        
+        /* print the server's reply */
+        printf("\nThe LS results are: \n");
+        while (1) {
+          n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
+          
+          if (n < 0) { 
+            error("ERROR in recvfrom\n");
+          }
+
+          if (strcmp(buf, "end") == 0) {
+            printf("\n");
+            break;
+          }
+
+          printf("buf: %s", buf);
+        }
+
       }else if (strncmp(buf, "get", 3 )== 0){
         printf("in get\n");
       }else if (strncmp(buf, "put", 3) == 0){
@@ -115,37 +140,6 @@ int main(int argc, char **argv) {
       }else if (strncmp(buf, "delete", 6) == 0){
         printf("in delete\n");
       }
-      
-      //might need to do checking if the message is too long (altough the message shouldn't be)
-
-      /* send the message to the server */
-      serverlen = sizeof(serveraddr);
-      n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
-      if (n < 0) 
-        error("ERROR in sendto\n");
-      
-      /* print the server's reply */
-      while (1) {
-        n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
-        if (n < 0) { 
-          error("ERROR in recvfrom\n");
-        }
-
-        printf("buf: %s, strlen(buf): %ld\n", buf, strlen(buf));
-
-
-        if (strcmp(buf, "end") == 0) {
-          break;
-        }
-
-      }
-      
-      n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
-      if (n < 0) 
-        error("ERROR in recvfrom\n");
-      
-      printf("Echo from server: %s\n", buf);
-
 
     }
     

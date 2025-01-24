@@ -127,12 +127,19 @@ int main(int argc, char **argv) {
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
 
-
     if (strcmp(buf, "exit") == 0){
-      printf("Breaking While\n");
-      exit(0); //take out
-      break;
+
+      strcpy(buf, "Goodbye Client!\n");
+      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+
+      if (n < 0) {
+        error("ERROR in sendto\n");
+      }
+      
+      printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
+
     } else if (strcmp(buf, "ls") == 0){
+
       //CITATION popen: https://stackoverflow.com/questions/12005902/c-program-linux-get-command-line-output-to-a-variable-and-filter-data 
 
       // bzero(buf, BUFSIZE);
@@ -142,23 +149,19 @@ int main(int argc, char **argv) {
           fprintf(stderr, "Error attempting to use ls.\n");
           return 1;
       }
-      
+
       while (fgets(buf, sizeof(buf), server_response) != NULL) {
           // Process the line stored in 'buffer'
 
-          printf("buf: %s, strlen(buf): %ld\n", buf, strlen(buf));
-          n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+          n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
           
           if (n < 0) {
             error("ERROR in sendto\n");
           } 
-          // bzero(buf, BUFSIZE);
-
-            
       }
       
       strcpy(buf, "end");
-      n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
 
       if (pclose(server_response) == -1) {
           fprintf(stderr," Error!\n");
@@ -179,7 +182,7 @@ int main(int argc, char **argv) {
     /* 
      * sendto: echo the input back to the client 
      */
-    n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &clientaddr, clientlen);
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
     
     if (n < 0) 
       error("ERROR in sendto\n");
