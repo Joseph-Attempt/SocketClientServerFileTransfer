@@ -57,6 +57,10 @@ int main(int argc, char **argv) {
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
   FILE *server_response;
+  char filename[40];
+  int position;
+  int file_status;
+  FILE *fp; 
   /* 
    * check command line arguments 
    */
@@ -141,8 +145,6 @@ int main(int argc, char **argv) {
     } else if (strcmp(buf, "ls") == 0){
 
       //CITATION popen: https://stackoverflow.com/questions/12005902/c-program-linux-get-command-line-output-to-a-variable-and-filter-data 
-
-      // bzero(buf, BUFSIZE);
       server_response = popen("ls", "r");
       
       if(!server_response) {
@@ -150,18 +152,26 @@ int main(int argc, char **argv) {
           return 1;
       }
 
+      bzero(buf, BUFSIZE);
+
       while (fgets(buf, sizeof(buf), server_response) != NULL) {
           // Process the line stored in 'buffer'
-
+          printf("looking at service side buf when ls: %s", buf);
           n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
           
           if (n < 0) {
             error("ERROR in sendto\n");
           } 
+          bzero(buf, BUFSIZE);
       }
       
       strcpy(buf, "end");
       n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+      if (n < 0) {
+        error("ERROR in sendto\n");
+      } 
+      bzero(buf, BUFSIZE);
+
 
       if (pclose(server_response) == -1) {
           fprintf(stderr," Error!\n");
@@ -169,20 +179,45 @@ int main(int argc, char **argv) {
       }
 
     }else if (strncmp(buf, "get", 3 )== 0){
-      printf("in get\n");
+      position = 4;
+      strncpy(filename, buf + position, strlen(buf) - position + 1);
+      fp = fopen(filename, "r");
+      bzero(buf, BUFSIZE);
+
+      while (fgets(buf, BUFSIZE, fp)){
+        printf("Reading Value from file: %s", buf);
+        n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+        if (n < 0) {
+          error("ERROR in sendto\n");
+        } 
+        bzero(buf, BUFSIZE);
+
+      //unsure if I should bzero it here. I need to know if fgets overwrites the rest of the char array if it doesn't fill it up all the way
+      } 
+
+      fclose(fp);
+      strcpy(buf, "end");
+      
+      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+      if (n < 0) {
+        error("ERROR in sendto\n");
+      } 
+      bzero(buf, BUFSIZE);
+
+
     }else if (strncmp(buf, "put", 3) == 0){
+
       printf("in put\n");
+
+
     }else if (strncmp(buf, "delete", 6) == 0){
-      printf("in delete\n");
-      char filename[40];
-      int position = 7;
-      int file_action_status;
+      position = 7;
       printf("buf = %s\n", buf);
       strncpy(filename, buf + position, strlen(buf) - position + 1);
       printf("filename: %s\n", filename);
-      file_action_status = remove(filename);
+      file_status = remove(filename);
 
-      if (file_action_status !=0) {
+      if (file_status !=0) {
         printf("Failed to remove file %s\n", filename);
       }else {
         printf("Succeeded in removing file %s\n", filename);

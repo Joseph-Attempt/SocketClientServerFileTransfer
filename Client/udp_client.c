@@ -60,7 +60,10 @@ int main(int argc, char **argv) {
     struct hostent *server;
     char *hostname;
     char buf[BUFSIZE];
-
+    int position;
+    char filename[40];
+    int file_status;
+    FILE *fp; 
     /* check command line arguments */
     if (argc != 3) {
        fprintf(stderr,"usage: %s <hostname> <port>\n", argv[0]);
@@ -104,13 +107,14 @@ int main(int argc, char **argv) {
       buf[strcspn(buf, "\n")] = 0;
       
       if (strcmp(buf, "exit") == 0){
-        //Will need to consider data dropping over the network
+        //Will need to consider if data dropping over the network is an issue for this option. I don't beleive it will be.
         n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
         printf("Server Response to Client Exit: %s\n", buf);
         break;
+
       } else if (strcmp(buf, "ls") == 0){
-        
+        //ls malfunctioning, ls will give all the results with one call and then no results with another, and switch between the two
         n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
         if (n < 0){ 
@@ -118,8 +122,11 @@ int main(int argc, char **argv) {
         }
 
         printf("\nThe LS results are: \n");
-        
+        // bzero(buf, BUFSIZE);
+
         while (1) {
+          // bzero(buf, BUFSIZE);
+
           n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
           
           if (n < 0) { 
@@ -136,32 +143,51 @@ int main(int argc, char **argv) {
 
       }else if (strncmp(buf, "get", 3 )== 0){
         printf("in get\n");
-      }else if (strncmp(buf, "put", 3) == 0){
-        printf("in put\n");
-      }else if (strncmp(buf, "delete", 6) == 0){
-        printf("in delete\n");
-
+        position = 4;
+        strncpy(filename, buf + position, strlen(buf) - position + 1);
+        fp = fopen(filename, "w");
+        // bzero(buf, BUFSIZE);
         n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
         if (n < 0){ 
           error("ERROR in sendto\n");
         }
+
+        while (1) {
+          n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
+          
+          if (n < 0){ 
+            error("ERROR in recvfrom\n");
+          }
+          
+          printf("Value Being Read from File: %s", buf);
+          
+          if (strcmp(buf, "end") == 0) {
+            printf("\n");
+            break;
+          }
+          
+          fputs(buf, fp);
+
+        }
+        
+        fclose(fp);
+
+      }else if (strncmp(buf, "put", 3) == 0){
+        printf("in put\n");
+
+      }else if (strncmp(buf, "delete", 6) == 0){
+        printf("in delete\n");
+
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        if (n < 0){ 
+          error("ERROR in sendto\n");
+        }
         
         n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
-
-        // printf("\nThe LS results are: \n");
-        
-        // while (1) {
-        //   n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
-          
-        //   if (n < 0) { 
-        //     error("ERROR in recvfrom\n");
-        //   }
-
-        //   if (strcmp(buf, "end") == 0) {
-        //     printf("\n");
-        //     break;
-        //   }
+        if (n < 0){ 
+          error("ERROR in recvfrom\n");
+        }
 
           printf("%s", buf);
       }
