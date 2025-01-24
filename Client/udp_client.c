@@ -113,11 +113,12 @@ int main(int argc, char **argv) {
         
         n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
-        if (n < 0) 
+        if (n < 0){ 
           error("ERROR in sendto\n");
-        
-        /* print the server's reply */
+        }
+
         printf("\nThe LS results are: \n");
+        
         while (1) {
           n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
           
@@ -130,7 +131,7 @@ int main(int argc, char **argv) {
             break;
           }
 
-          printf("buf: %s", buf);
+          printf("%s", buf);
         }
 
       }else if (strncmp(buf, "get", 3 )== 0){
@@ -139,6 +140,30 @@ int main(int argc, char **argv) {
         printf("in put\n");
       }else if (strncmp(buf, "delete", 6) == 0){
         printf("in delete\n");
+
+        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        
+        if (n < 0){ 
+          error("ERROR in sendto\n");
+        }
+        
+        n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
+
+        // printf("\nThe LS results are: \n");
+        
+        // while (1) {
+        //   n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
+          
+        //   if (n < 0) { 
+        //     error("ERROR in recvfrom\n");
+        //   }
+
+        //   if (strcmp(buf, "end") == 0) {
+        //     printf("\n");
+        //     break;
+        //   }
+
+          printf("%s", buf);
       }
 
     }

@@ -174,6 +174,26 @@ int main(int argc, char **argv) {
       printf("in put\n");
     }else if (strncmp(buf, "delete", 6) == 0){
       printf("in delete\n");
+      char filename[40];
+      int position = 7;
+      int file_action_status;
+      printf("buf = %s\n", buf);
+      strncpy(filename, buf + position, strlen(buf) - position + 1);
+      printf("filename: %s\n", filename);
+      file_action_status = remove(filename);
+
+      if (file_action_status !=0) {
+        printf("Failed to remove file %s\n", filename);
+      }else {
+        printf("Succeeded in removing file %s\n", filename);
+      }
+      // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+
+      if (n < 0) {
+        error("ERROR in sendto\n");
+      }
+      
+      printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
     }
     
     printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
