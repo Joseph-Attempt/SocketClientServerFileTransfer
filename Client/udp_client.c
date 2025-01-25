@@ -36,7 +36,33 @@ int exit_client_program(void){
   return 0;
 }
 
-int list_server_directory_content(void){
+int list_server_directory_content(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+  int n;
+  n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+  
+  if (n < 0){ 
+    error("ERROR in sendto\n");
+  }
+
+  printf("\nThe LS results are: \n");
+  // bzero(buf, BUFSIZE);
+
+  while (1) {
+    // bzero(buf, BUFSIZE);
+
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
+    
+    if (n < 0) { 
+      error("ERROR in recvfrom\n");
+    }
+
+    if (strcmp(buf, "end") == 0) {
+      printf("\n");
+      break;
+    }
+
+    printf("%s", buf);
+  }
   return 0;
 }
 
@@ -195,32 +221,35 @@ int main(int argc, char **argv) {
         break;
 
       } else if (strcmp(buf, "ls") == 0){
+
+// int list_server_directory_content(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+        list_server_directory_content(buf, sockfd, serverlen, serveraddr);
         //ls malfunctioning, ls will give all the results with one call and then no results with another, and switch between the two
-        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+        // n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
-        if (n < 0){ 
-          error("ERROR in sendto\n");
-        }
+        // if (n < 0){ 
+        //   error("ERROR in sendto\n");
+        // }
 
-        printf("\nThe LS results are: \n");
-        // bzero(buf, BUFSIZE);
+        // printf("\nThe LS results are: \n");
+        // // bzero(buf, BUFSIZE);
 
-        while (1) {
-          // bzero(buf, BUFSIZE);
+        // while (1) {
+        //   // bzero(buf, BUFSIZE);
 
-          n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
+        //   n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
           
-          if (n < 0) { 
-            error("ERROR in recvfrom\n");
-          }
+        //   if (n < 0) { 
+        //     error("ERROR in recvfrom\n");
+        //   }
 
-          if (strcmp(buf, "end") == 0) {
-            printf("\n");
-            break;
-          }
+        //   if (strcmp(buf, "end") == 0) {
+        //     printf("\n");
+        //     break;
+        //   }
 
-          printf("%s", buf);
-        }
+        //   printf("%s", buf);
+        // }
 
       }else if (strncmp(buf, "get", 3 )== 0){
 
