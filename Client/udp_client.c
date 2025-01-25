@@ -76,7 +76,8 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
   position = 4;
 
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  fp = fopen(filename, "w");
+  // fp = fopen(filename, "w");
+  fp = fopen(filename, "wb");
 
   n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
   
@@ -98,7 +99,8 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
       break;
     }
     
-    fputs(buf, fp);
+    // fputs(buf, fp);
+    fwrite(buf,BUFSIZE, 1, fp);
 
   }
   
@@ -110,7 +112,8 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
         position = 4;
         
         strncpy(filename, buf + position, strlen(buf) - position + 1);
-        fp = fopen(filename, "r");
+        // fp = fopen(filename, "r");
+        fp = fopen(filename, "rb");
         n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
         
         bzero(buf, BUFSIZE);
