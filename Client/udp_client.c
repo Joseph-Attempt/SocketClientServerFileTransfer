@@ -41,7 +41,41 @@ int list_server_directory_content(void){
 }
 
 
-int get_file_from_server_directory(void){
+int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+  int n;
+  int position = 4;
+  char filename[40];
+  FILE *fp;
+  
+  position = 4;
+  strncpy(filename, buf + position, strlen(buf) - position + 1);
+  fp = fopen(filename, "w");
+
+  n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+  
+  if (n < 0){ 
+    error("ERROR in sendto\n");
+  }
+
+  while (1) {
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
+    
+    if (n < 0){ 
+      error("ERROR in recvfrom\n");
+    }
+    
+    printf("Value Being Read from File: %s", buf);
+    
+    if (strcmp(buf, "end") == 0) {
+      printf("\n");
+      break;
+    }
+    
+    fputs(buf, fp);
+
+  }
+  
+  fclose(fp);
   return 0;
 }
 
@@ -82,7 +116,21 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
   return 0;
 }
 
-int delete_file_in_server_directory(void){
+int delete_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
+  int n;
+
+  n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
+  if (n < 0){ 
+    error("ERROR in sendto\n");
+  }
+  
+  n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
+  if (n < 0){ 
+    error("ERROR in recvfrom\n");
+  }
+
+    printf("%s", buf);
+
   return 0;
 }
 
@@ -175,90 +223,20 @@ int main(int argc, char **argv) {
         }
 
       }else if (strncmp(buf, "get", 3 )== 0){
-        printf("in get\n");
-        position = 4;
-        strncpy(filename, buf + position, strlen(buf) - position + 1);
-        fp = fopen(filename, "w");
-        // bzero(buf, BUFSIZE);
-        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        
-        if (n < 0){ 
-          error("ERROR in sendto\n");
-        }
 
-        while (1) {
-          n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
-          
-          if (n < 0){ 
-            error("ERROR in recvfrom\n");
-          }
-          
-          printf("Value Being Read from File: %s", buf);
-          
-          if (strcmp(buf, "end") == 0) {
-            printf("\n");
-            break;
-          }
-          
-          fputs(buf, fp);
-
-        }
-        
-        fclose(fp);
+        get_file_from_server_directory(buf, sockfd, serverlen, serveraddr);
 
       }else if (strncmp(buf, "put", 3) == 0){
-      // int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr){
         
-        printf("in put\n");
         put_file_in_server_directory(buf, sockfd, serverlen, serveraddr);
-                
-        // position = 4;
-        // strncpy(filename, buf + position, strlen(buf) - position + 1);
-        // fp = fopen(filename, "r");
-        // n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        
-        // bzero(buf, BUFSIZE);
-
-        // while (fgets(buf, BUFSIZE, fp)){
-        //   printf("Reading Value from file: %s", buf);
-        //   n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        //   if (n < 0) {
-        //     error("ERROR in sendto\n");
-        //   } 
-          
-        //   bzero(buf, BUFSIZE);
-
-        // } 
-
-        // fclose(fp);
-        // strcpy(buf, "end");
-        
-        // n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        // if (n < 0) {
-        //   error("ERROR in sendto\n");
-        // } 
-
-        // bzero(buf, BUFSIZE);
-
 
       }else if (strncmp(buf, "delete", 6) == 0){
-        printf("in delete\n");
 
-        n = sendto(sockfd, buf, BUFSIZE, 0, &serveraddr, serverlen);
-        if (n < 0){ 
-          error("ERROR in sendto\n");
-        }
-        
-        n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen); //remove confirmation
-        if (n < 0){ 
-          error("ERROR in recvfrom\n");
-        }
-
-          printf("%s", buf);
+        delete_file_in_server_directory(buf, sockfd, serverlen, serveraddr);
+      
       }
 
     }
-    
 
     return 0;
 }
