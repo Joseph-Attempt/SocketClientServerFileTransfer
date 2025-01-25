@@ -23,24 +23,145 @@ void error(char *msg) {
   exit(1);
 }
 
-int exit_client_program(void){
+int exit_client_program(char buf[BUFSIZE], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n){
+
+  strcpy(buf, "Goodbye Client!\n");
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+
+  if (n < 0) {
+    error("ERROR in sendto\n");
+  }
+  
+  // printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
   return 0;
 }
 
-int list_server_directory_content(void){
+int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, FILE *fp){
+  //CITATION popen: https://stackoverflow.com/questions/12005902/c-program-linux-get-command-line-output-to-a-variable-and-filter-data 
+  fp = popen("ls", "r");
+  
+  if(!fp) {
+      fprintf(stderr, "Error attempting to use ls.\n");
+      return 1;
+  }
+
+  bzero(buf, BUFSIZE);
+
+  while (fgets(buf, BUFSIZE, fp) != NULL) {
+      // Process the line stored in 'buffer'
+      printf("looking at service side buf when ls: %s", buf);
+      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+      
+      if (n < 0) {
+        error("ERROR in sendto\n");
+      } 
+      bzero(buf, BUFSIZE);
+  }
+  
+  strcpy(buf, "end");
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+  if (n < 0) {
+    error("ERROR in sendto\n");
+  } 
+  bzero(buf, BUFSIZE);
+
+
+  if (pclose(fp) == -1) {
+    fprintf(stderr," Error!\n");
+    return 1;
+  }
+
+
   return 0;
 }
 
 
-int get_file_in_server_directory(void){
+int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40], FILE *fp){
+  position = 4;
+  strncpy(filename, buf + position, strlen(buf) - position + 1);
+  fp = fopen(filename, "r");
+  bzero(buf, BUFSIZE);
+
+  while (fgets(buf, BUFSIZE, fp)){
+    printf("Reading Value from file: %s", buf);
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    if (n < 0) {
+      error("ERROR in sendto\n");
+    } 
+    bzero(buf, BUFSIZE);
+
+  //unsure if I should bzero it here. I need to know if fgets overwrites the rest of the char array if it doesn't fill it up all the way
+  } 
+
+  fclose(fp);
+  strcpy(buf, "end");
+  
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+  if (n < 0) {
+    error("ERROR in sendto\n");
+  } 
+  bzero(buf, BUFSIZE);
+
   return 0;
 }
 
-int put_file_in_server_directory(void){
+int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40], FILE *fp){
+
+  printf("in put\n");
+  position = 4;
+  strncpy(filename, buf + position, strlen(buf) - position + 1);
+  fp = fopen(filename, "w");
+  // bzero(buf, BUFSIZE);
+  // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+  
+  if (n < 0){ 
+    error("ERROR in sendto\n");
+  }
+  bzero(buf, BUFSIZE);
+
+  while (1) {
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
+    
+    if (n < 0){ 
+      error("ERROR in recvfrom\n");
+    }
+    
+    printf("Value Being Read from File: %s", buf);
+    
+    if (strcmp(buf, "end") == 0) {
+      printf("\n");
+      break;
+    }
+    
+    fputs(buf, fp);
+    bzero(buf, BUFSIZE);
+
+  }
+  
+  fclose(fp);
+
   return 0;
 }
 
-int delete_file_in_server_directory(void){
+int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40]){
+    position = 7;
+    printf("buf = %s\n", buf);
+    strncpy(filename, buf + position, strlen(buf) - position + 1);
+    printf("filename: %s\n", filename);
+    file_status = remove(filename);
+
+    if (file_status !=0) {
+      printf("Failed to remove file %s\n", filename);
+    }else {
+      printf("Succeeded in removing file %s\n", filename);
+    }
+    // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+
+    if (n < 0) {
+      error("ERROR in sendto\n");
+    }
+    
+    // printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
   return 0;
 }
 
@@ -118,148 +239,25 @@ int main(int argc, char **argv) {
       error("ERROR in recvfrom\n");
 
 
-    /* 
-     * gethostbyaddr: determine who sent the datagram
-     */
-    hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-
+ 
+    hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);// gethostbyaddr: determine who sent the datagram
     if (hostp == NULL)
       error("ERROR on gethostbyadd\n");
 
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
-
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
 
     if (strcmp(buf, "exit") == 0){
-
-      strcpy(buf, "Goodbye Client!\n");
-      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-
-      if (n < 0) {
-        error("ERROR in sendto\n");
-      }
-      
-      printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
-
+      exit_client_program(buf, sockfd, clientlen, clientaddr, n);
     } else if (strcmp(buf, "ls") == 0){
-
-      //CITATION popen: https://stackoverflow.com/questions/12005902/c-program-linux-get-command-line-output-to-a-variable-and-filter-data 
-      server_response = popen("ls", "r");
-      
-      if(!server_response) {
-          fprintf(stderr, "Error attempting to use ls.\n");
-          return 1;
-      }
-
-      bzero(buf, BUFSIZE);
-
-      while (fgets(buf, sizeof(buf), server_response) != NULL) {
-          // Process the line stored in 'buffer'
-          printf("looking at service side buf when ls: %s", buf);
-          n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-          
-          if (n < 0) {
-            error("ERROR in sendto\n");
-          } 
-          bzero(buf, BUFSIZE);
-      }
-      
-      strcpy(buf, "end");
-      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-      if (n < 0) {
-        error("ERROR in sendto\n");
-      } 
-      bzero(buf, BUFSIZE);
-
-
-      if (pclose(server_response) == -1) {
-          fprintf(stderr," Error!\n");
-          return 1;
-      }
-
+      list_server_directory_content(buf, sockfd, clientlen, clientaddr, n, fp);
     }else if (strncmp(buf, "get", 3 )== 0){
-      position = 4;
-      strncpy(filename, buf + position, strlen(buf) - position + 1);
-      fp = fopen(filename, "r");
-      bzero(buf, BUFSIZE);
-
-      while (fgets(buf, BUFSIZE, fp)){
-        printf("Reading Value from file: %s", buf);
-        n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-        if (n < 0) {
-          error("ERROR in sendto\n");
-        } 
-        bzero(buf, BUFSIZE);
-
-      //unsure if I should bzero it here. I need to know if fgets overwrites the rest of the char array if it doesn't fill it up all the way
-      } 
-
-      fclose(fp);
-      strcpy(buf, "end");
-      
-      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-      if (n < 0) {
-        error("ERROR in sendto\n");
-      } 
-      bzero(buf, BUFSIZE);
-
-
+      get_file_in_server_directory(buf, sockfd, clientlen,  clientaddr, n, position, file_status, filename,fp);
     }else if (strncmp(buf, "put", 3) == 0){
-
-      printf("in put\n");
-      position = 4;
-      strncpy(filename, buf + position, strlen(buf) - position + 1);
-      fp = fopen(filename, "w");
-      // bzero(buf, BUFSIZE);
-      // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-      
-      if (n < 0){ 
-        error("ERROR in sendto\n");
-      }
-      bzero(buf, BUFSIZE);
-
-      while (1) {
-        n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
-        
-        if (n < 0){ 
-          error("ERROR in recvfrom\n");
-        }
-        
-        printf("Value Being Read from File: %s", buf);
-        
-        if (strcmp(buf, "end") == 0) {
-          printf("\n");
-          break;
-        }
-        
-        fputs(buf, fp);
-        bzero(buf, BUFSIZE);
-
-      }
-      
-      fclose(fp);
-
-
+      put_file_in_server_directory(buf, sockfd, clientlen, clientaddr, n, position, file_status, filename, fp);
     }else if (strncmp(buf, "delete", 6) == 0){
-      position = 7;
-      printf("buf = %s\n", buf);
-      strncpy(filename, buf + position, strlen(buf) - position + 1);
-      printf("filename: %s\n", filename);
-      file_status = remove(filename);
-
-      if (file_status !=0) {
-        printf("Failed to remove file %s\n", filename);
-      }else {
-        printf("Succeeded in removing file %s\n", filename);
-      }
-      // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-
-      if (n < 0) {
-        error("ERROR in sendto\n");
-      }
-      
-      printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
+      delete_file_in_server_directory(buf, sockfd, clientlen, clientaddr,  n, position, file_status,  filename);
     }
     
     printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
