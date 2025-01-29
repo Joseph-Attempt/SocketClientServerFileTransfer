@@ -13,7 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUFSIZE 1024
+#define BUFSIZE 1500
 
 /*
  * error - wrapper for perror
@@ -51,7 +51,7 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, 
       // Process the line stored in 'buffer'
       printf("looking at service side buf when ls: %s", buf);
       n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-      
+      printf("Bytes Sent over: %d\n",n);
       if (n < 0) {
         error("ERROR in sendto\n");
       } 
@@ -81,18 +81,36 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "r");
   bzero(buf, BUFSIZE);
-
+  int total; 
+  int len; 
+  int bytes_remaining;
   while (fgets(buf, BUFSIZE, fp)){
-    printf("Reading Value from file: %s", buf);
-    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-    if (n < 0) {
-      error("ERROR in sendto\n");
-    } 
+  // while (fread(buf, 1, BUFSIZE, fp) > 0){
+
+  //CITATION: Influenced by Beej sendall example
+    total = 0;
+    len = strlen(buf);
+    bytes_remaining = len;
+    // printf("Before while, total: %d, len: %d, bytes_remaning: %d\n", total, len, bytes_remaining);
+    
+    while (total < len) {
+      n = sendto(sockfd, buf+total, bytes_remaining, 0, (struct sockaddr *) &clientaddr, clientlen);
+      if (n < 0) {
+        error("ERROR in sendto\n");
+        break;
+      } 
+      total = total + n;
+      bytes_remaining = bytes_remaining - n;
+      // printf("Bytes currently sent over (n): %d, bytes_remaning: %d, Total bytes sent (total): %d, (buff size) Len: %d\n", n, bytes_remaining, total, len);
+
+    }
+    
+    len = total; //this would be used for a final error checking (if not all of the bytes got sent) but given fread while loop, I think that may be a bad idea.
+
     bzero(buf, BUFSIZE);
 
-  //unsure if I should bzero it here. I need to know if fgets overwrites the rest of the char array if it doesn't fill it up all the way
   } 
-
+  
   fclose(fp);
   strcpy(buf, "end");
   
@@ -100,8 +118,8 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   if (n < 0) {
     error("ERROR in sendto\n");
   } 
+  
   bzero(buf, BUFSIZE);
-
   return 0;
 }
 
@@ -111,6 +129,7 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "w");
+  // fp = fopen(filename, "wb");
   // bzero(buf, BUFSIZE);
   // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
   
@@ -126,7 +145,7 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
       error("ERROR in recvfrom\n");
     }
     
-    printf("Value Being Read from File: %s", buf);
+    // printf("Value Being Read from File: %s", buf);
     
     if (strcmp(buf, "end") == 0) {
       printf("\n");
@@ -134,6 +153,7 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
     }
     
     fputs(buf, fp);
+    // fwrite(buf,BUFSIZE, 1, fp);
     bzero(buf, BUFSIZE);
 
   }
@@ -145,7 +165,7 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
 
 int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40]){
     position = 7;
-    printf("buf = %s\n", buf);
+    // printf("buf = %s\n", buf);
     strncpy(filename, buf + position, strlen(buf) - position + 1);
     printf("filename: %s\n", filename);
     file_status = remove(filename);
@@ -266,10 +286,11 @@ int main(int argc, char **argv) {
     /* 
      * sendto: echo the input back to the client 
      */
-    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
     
-    if (n < 0) 
-      error("ERROR in sendto\n");
+  //   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    
+  //   if (n < 0) 
+  //     error("ERROR in sendto\n");
 
   }
 }
