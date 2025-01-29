@@ -77,35 +77,37 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, 
 
 
 int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40], FILE *fp){
+  int total_bytes_sent_during_one_read; 
+  int bytes_remaining;
+  int bytes_read;
+  
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "r");
   bzero(buf, BUFSIZE);
-  int total; 
-  int len; 
-  int bytes_remaining;
-  while (fgets(buf, BUFSIZE, fp)){
-  // while (fread(buf, 1, BUFSIZE, fp) > 0){
 
-  //CITATION: Influenced by Beej sendall example
-    total = 0;
-    len = strlen(buf);
-    bytes_remaining = len;
-    // printf("Before while, total: %d, len: %d, bytes_remaning: %d\n", total, len, bytes_remaining);
+  while (1){
+    bytes_read = fread(buf, 1, BUFSIZE, fp);
+    if (bytes_read < 1) {
+      break;
+    }
+
+    //CITATION: Influenced by Beej sendall example
+    total_bytes_sent_during_one_read = 0;
+    bytes_remaining = bytes_read;
     
-    while (total < len) {
-      n = sendto(sockfd, buf+total, bytes_remaining, 0, (struct sockaddr *) &clientaddr, clientlen);
+    while (total_bytes_sent_during_one_read < bytes_read) {
+      n = sendto(sockfd, buf+total_bytes_sent_during_one_read, bytes_remaining, 0, (struct sockaddr *) &clientaddr, clientlen);
       if (n < 0) {
         error("ERROR in sendto\n");
         break;
       } 
-      total = total + n;
+
+      total_bytes_sent_during_one_read = total_bytes_sent_during_one_read + n;
       bytes_remaining = bytes_remaining - n;
-      // printf("Bytes currently sent over (n): %d, bytes_remaning: %d, Total bytes sent (total): %d, (buff size) Len: %d\n", n, bytes_remaining, total, len);
+      printf("n: %d, bytes_remaning: %d, total bytes over one read: %d, bytes_read: %d\n", n, bytes_remaining, total_bytes_sent_during_one_read, bytes_read);
 
     }
-    
-    len = total; //this would be used for a final error checking (if not all of the bytes got sent) but given fread while loop, I think that may be a bad idea.
 
     bzero(buf, BUFSIZE);
 

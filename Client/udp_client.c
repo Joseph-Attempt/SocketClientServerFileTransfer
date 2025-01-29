@@ -88,7 +88,6 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
     bzero(buf, BUFSIZE);
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
 
-    // printf("Value in buf: %s", buf);
     if (n < 0){ 
       error("ERROR in recvfrom\n");
     }
@@ -100,7 +99,7 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
     }
     // printf("Bytes recieved n: %d, strlen(buf): %ld\n", n, strlen(buf));
 
-    fputs(buf, fp);
+    fwrite(buf, 1, n, fp);
   }
   
   fclose(fp);

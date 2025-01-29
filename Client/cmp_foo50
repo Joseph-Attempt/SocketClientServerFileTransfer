@@ -1,0 +1,8 @@
+cmp: EOF on foo50 after byte 5833500, line 97225
+cmp: EOF on foo50 after byte 11260500, line 187675
+cmp: EOF on foo50 after byte 9942000, line 165700
+cmp: EOF on foo50 after byte 8083500, line 134725
+cmp: EOF on foo50 after byte 9300000, line 155000
+cmp: EOF on foo50 after byte 9198000, line 153300
+cmp: EOF on foo50 after byte 10789500, line 179825
+
