@@ -12,6 +12,7 @@
 #include <netdb.h> 
 
 #define BUFSIZE 1500
+#define FILENAMESIZE 40
 
 //NOTE: NEED TO BZERO OUT MORE DURING PUT, GET, DELETE due to writing into text files
 
@@ -68,7 +69,7 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int serverlen, 
 }
 
 
-int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[40], FILE *fp){
+int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[FILENAMESIZE], FILE *fp){
   char client_ack[20];
   int client_ack_bytes_sent;
   position = 4;
@@ -100,32 +101,34 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
 
   }
   
+  bzero(filename, FILENAMESIZE);
   fclose(fp);
   return 0;
 }
 
-int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[40], FILE *fp){
-        position = 4;
-        
-        strncpy(filename, buf + position, strlen(buf) - position + 1);
-        fp = fopen(filename, "r");
-        n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-        
-        bzero(buf, BUFSIZE);
+int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[FILENAMESIZE], FILE *fp){
+  position = 4;
+  strncpy(filename, buf + position, strlen(buf) - position + 1);
 
-        while (fgets(buf, BUFSIZE, fp)){          
-          n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-          if (n < 0) error("ERROR in sendto\n");          
-          bzero(buf, BUFSIZE);
-        } 
+  fp = fopen(filename, "r");
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+  
+  bzero(buf, BUFSIZE);
 
-        fclose(fp);
-        strcpy(buf, "end");
-        
-        n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-        if (n < 0) error("ERROR in sendto\n");
+  while (fgets(buf, BUFSIZE, fp)){          
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+    if (n < 0) error("ERROR in sendto\n");          
+    bzero(buf, BUFSIZE);
+  } 
 
-        bzero(buf, BUFSIZE);
+  fclose(fp);
+  strcpy(buf, "end");
+  
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+  if (n < 0) error("ERROR in sendto\n");
+
+  bzero(buf, BUFSIZE);
+  bzero(filename, FILENAMESIZE);
 
   return 0;
 }
@@ -149,7 +152,7 @@ int main(int argc, char **argv) {
     char *hostname;
     char buf[BUFSIZE];
     int position;
-    char filename[40];
+    char filename[FILENAMESIZE];
     int file_status;
     FILE *fp; 
 

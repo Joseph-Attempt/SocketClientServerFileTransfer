@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 
 #define BUFSIZE 1500
+#define FILENAMESIZE 40
 
 /*
  * error - wrapper for perror
@@ -74,7 +75,7 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, 
 }
 
 
-int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40], FILE *fp){
+int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[FILENAMESIZE], FILE *fp){
   int total_bytes_sent_during_one_read; 
   int bytes_remaining;
   int bytes_read;
@@ -114,30 +115,26 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
     }
 
     bzero(buf, BUFSIZE);
-
   } 
   
   fclose(fp);
   strcpy(buf, "end");
   
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-  if (n < 0) {
-    error("ERROR in sendto\n");
-  } 
+  if (n < 0) error("ERROR in sendto\n");
   
   bzero(buf, BUFSIZE);
+  bzero(filename, FILENAMESIZE);
+
   return 0;
 }
 
-int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40], FILE *fp){
+int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[FILENAMESIZE], FILE *fp){
 
   printf("in put\n");
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "w");
-  // fp = fopen(filename, "wb");
-  // bzero(buf, BUFSIZE);
-  // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
   
   if (n < 0){ 
     error("ERROR in sendto\n");
@@ -165,33 +162,33 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   }
   
   fclose(fp);
+  bzero(filename, FILENAMESIZE);
 
   return 0;
 }
 
-int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40]){
-    position = 7;
-    strncpy(filename, buf + position, strlen(buf) - position + 1);
-    printf("filename: %s\n", filename);
-    file_status = remove(filename);
-    bzero(buf, BUFSIZE);
+int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[FILENAMESIZE]){
+  position = 7;
+  strncpy(filename, buf + position, strlen(buf) - position + 1);
+  printf("filename: %s\n", filename);
+  file_status = remove(filename);
+  bzero(buf, BUFSIZE);
 
-    
-    if (file_status !=0) {
-      strcpy(buf, "Failed to remove the file ");
-      printf("Failed to remove the file %s\n", filename);
-    }else {
-      strcpy(buf, "Failed to remove the file ");
-      printf("Succeeded in removing file %s\n", filename);
-    }
-    //I should send a message back saying it has been deleted
-    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+  
+  if (file_status !=0) {
+    strcpy(buf, "Failed to remove the file ");
+    printf("Failed to remove the file %s\n", filename);
+  }else {
+    strcpy(buf, "Failed to remove the file ");
+    printf("Succeeded in removing file %s\n", filename);
+  }
 
-    if (n < 0) {
-      error("ERROR in sendto\n");
-    }
-    
-      bzero(buf, BUFSIZE);
+  //I should send a message back saying it has been deleted
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+  if (n < 0) error("ERROR in sendto\n");
+  
+  bzero(buf, BUFSIZE);
+  bzero(filename, FILENAMESIZE);
   return 0;
 }
 
@@ -208,7 +205,7 @@ int main(int argc, char **argv) {
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
   FILE *server_response;
-  char filename[40];
+  char filename[FILENAMESIZE];
   int position;
   int file_status;
   FILE *fp; 
