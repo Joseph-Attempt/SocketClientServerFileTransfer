@@ -73,9 +73,12 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int serverlen, 
 
 
 int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[40], FILE *fp){
+  char client_ack[20];
+  int client_ack_bytes_sent;
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "w");
+
   
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
   if (n < 0){ 
@@ -98,8 +101,13 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
       break;
     }
     // printf("Bytes recieved n: %d, strlen(buf): %ld\n", n, strlen(buf));
-
     fwrite(buf, 1, n, fp);
+
+    sprintf(client_ack, "Received: %d", n);
+
+    client_ack_bytes_sent = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+
+
   }
   
   fclose(fp);
