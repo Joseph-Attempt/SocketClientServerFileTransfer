@@ -32,7 +32,6 @@ int exit_client_program(char buf[BUFSIZE], int sockfd, int clientlen, struct soc
     error("ERROR in sendto\n");
   }
   
-  // printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
   return 0;
 }
 
@@ -48,7 +47,6 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, 
   bzero(buf, BUFSIZE);
 
   while (fgets(buf, BUFSIZE, fp) != NULL) {
-      // Process the line stored in 'buffer'
       printf("looking at service side buf when ls: %s", buf);
       n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
       printf("Bytes Sent over: %d\n",n);
@@ -80,6 +78,8 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   int total_bytes_sent_during_one_read; 
   int bytes_remaining;
   int bytes_read;
+  int bytes_from_client_ack;
+  char client_ack[20];
   
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
@@ -106,6 +106,10 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
       total_bytes_sent_during_one_read = total_bytes_sent_during_one_read + n;
       bytes_remaining = bytes_remaining - n;
       printf("n: %d, bytes_remaning: %d, total bytes over one read: %d, bytes_read: %d\n", n, bytes_remaining, total_bytes_sent_during_one_read, bytes_read);
+      
+      bytes_from_client_ack = recvfrom(sockfd, client_ack, 20, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
+      
+      bzero(client_ack, 20);
 
     }
 
@@ -167,23 +171,27 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
 
 int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[40]){
     position = 7;
-    // printf("buf = %s\n", buf);
     strncpy(filename, buf + position, strlen(buf) - position + 1);
     printf("filename: %s\n", filename);
     file_status = remove(filename);
+    bzero(buf, BUFSIZE);
 
+    
     if (file_status !=0) {
-      printf("Failed to remove file %s\n", filename);
+      strcpy(buf, "Failed to remove the file ");
+      printf("Failed to remove the file %s\n", filename);
     }else {
+      strcpy(buf, "Failed to remove the file ");
       printf("Succeeded in removing file %s\n", filename);
     }
-    // n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    //I should send a message back saying it has been deleted
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
 
     if (n < 0) {
       error("ERROR in sendto\n");
     }
     
-    // printf("n: %d, sizeof(buf): %ld\n", n, sizeof(buf));
+      bzero(buf, BUFSIZE);
   return 0;
 }
 
@@ -217,9 +225,7 @@ int main(int argc, char **argv) {
    * socket: create the parent socket 
    */
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-  if (sockfd < 0) 
-    error("ERROR opening socket\n");
+  if (sockfd < 0) error("ERROR opening socket\n");
 
   /* setsockopt: Handy debugging trick that lets 
    * us rerun the server immediately after we kill it; 
@@ -227,48 +233,32 @@ int main(int argc, char **argv) {
    * Eliminates "ERROR on binding: Address already in use" error. 
    */
   optval = 1;
-  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, 
-	     (const void *)&optval , sizeof(int));
+  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
 
-  /*
-   * build the server's Internet address
-   */
+   //build the server's Internet address
   bzero((char *) &serveraddr, sizeof(serveraddr));
   serveraddr.sin_family = AF_INET;
   serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
   serveraddr.sin_port = htons((unsigned short)portno);
 
-  /* 
-   * bind: associate the parent socket with a port 
-   */
-  if (bind(sockfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0) 
-    error("ERROR on binding\n");
+  //bind: associate the parent socket with a port 
+  if (bind(sockfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0) error("ERROR on binding\n");
 
-  /* 
-   * main loop: wait for a datagram, then echo it
-   */
   clientlen = sizeof(clientaddr);
 
   while (1) {
-
-    /*
-     * recvfrom: receive a UDP datagram from a client
-     */
     bzero(buf, BUFSIZE);
+    
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
-  
-    if (n < 0)
-      error("ERROR in recvfrom\n");
+    if (n < 0) error("ERROR in recvfrom\n");
 
 
  
     hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);// gethostbyaddr: determine who sent the datagram
-    if (hostp == NULL)
-      error("ERROR on gethostbyadd\n");
+    if (hostp == NULL) error("ERROR on gethostbyadd\n");
 
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
-    if (hostaddrp == NULL)
-      error("ERROR on inet_ntoa\n");
+    if (hostaddrp == NULL) error("ERROR on inet_ntoa\n");
 
     if (strcmp(buf, "exit") == 0){
       exit_client_program(buf, sockfd, clientlen, clientaddr, n);
@@ -285,14 +275,6 @@ int main(int argc, char **argv) {
     printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
     printf("server received %ld/%d bytes: %s\n", strlen(buf), n, buf);
     
-    /* 
-     * sendto: echo the input back to the client 
-     */
-    
-  //   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-    
-  //   if (n < 0) 
-  //     error("ERROR in sendto\n");
 
   }
 }

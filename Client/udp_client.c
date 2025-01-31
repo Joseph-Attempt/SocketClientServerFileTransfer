@@ -45,18 +45,14 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int serverlen, 
   int n;
   
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-  if (n < 0){ 
-    error("ERROR in sendto\n");
-  }
+  if (n < 0) error("ERROR in sendto\n");
 
   printf("\nThe LS results are: \n");
   bzero(buf, BUFSIZE);
 
   while (1) {
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen);
-    if (n < 0) { 
-      error("ERROR in recvfrom\n");
-    }
+    if (n < 0) error("ERROR in recvfrom\n");
 
     if (strcmp(buf, "end") == 0) {
       printf("\n");
@@ -81,28 +77,22 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
 
   
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-  if (n < 0){ 
-    error("ERROR in sendto\n");
-  }
-  
+  if (n < 0) error("ERROR in sendto\n");
+
   bzero(buf, BUFSIZE);
 
   while (1) {
     bzero(buf, BUFSIZE);
-    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
 
-    if (n < 0){ 
-      error("ERROR in recvfrom\n");
-    }
-    // printf("Value Being Read from File: %s", buf);
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
+    if (n < 0) error("ERROR in recvfrom\n");
     
     if (strcmp(buf, "end") == 0) {
       printf("\n");
       break;
     }
-    // printf("Bytes recieved n: %d, strlen(buf): %ld\n", n, strlen(buf));
-    fwrite(buf, 1, n, fp);
 
+    fwrite(buf, 1, n, fp);
     sprintf(client_ack, "Received: %d", n);
 
     client_ack_bytes_sent = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
@@ -119,30 +109,21 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
         
         strncpy(filename, buf + position, strlen(buf) - position + 1);
         fp = fopen(filename, "r");
-        // fp = fopen(filename, "rb");
         n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
         
         bzero(buf, BUFSIZE);
 
-        while (fgets(buf, BUFSIZE, fp)){
-          printf("Reading Value from file: %s", buf);
+        while (fgets(buf, BUFSIZE, fp)){          
           n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-          if (n < 0) {
-            error("ERROR in sendto\n");
-          } 
-          
+          if (n < 0) error("ERROR in sendto\n");          
           bzero(buf, BUFSIZE);
-
         } 
 
         fclose(fp);
         strcpy(buf, "end");
         
         n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-        
-        if (n < 0) {
-          error("ERROR in sendto\n");
-        } 
+        if (n < 0) error("ERROR in sendto\n");
 
         bzero(buf, BUFSIZE);
 
@@ -150,20 +131,13 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
 }
 
 int delete_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n){
-  // int n;
-
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-  if (n < 0){ 
-    error("ERROR in sendto\n");
-  }
+  if (n < 0) error("ERROR in sendto\n");
   
   n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
-  if (n < 0){ 
-    error("ERROR in recvfrom\n");
-  }
+  if (n < 0) error("ERROR in recvfrom\n");
 
-    printf("%s", buf);
-
+  printf("Message from Server: %s\n", buf);
   return 0;
 }
 
@@ -188,8 +162,7 @@ int main(int argc, char **argv) {
     portno = atoi(argv[2]);
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
-    if (sockfd < 0) 
-        error("ERROR opening socket\n");
+    if (sockfd < 0) error("ERROR opening socket\n");
 
     
     server = gethostbyname(hostname);// gethostbyname: get the server's DNS entry 
@@ -209,6 +182,7 @@ int main(int argc, char **argv) {
 
     bzero(buf, BUFSIZE);
     
+    //Displaying menu and implementing user choice
     while (1) {
       display_menu();
       fgets(buf, BUFSIZE, stdin);
@@ -218,7 +192,6 @@ int main(int argc, char **argv) {
         exit_client_program(buf, sockfd, serverlen, serveraddr, n);
         break;
       } else if (strcmp(buf, "ls") == 0){
-        //ls malfunctioning, ls will give all the results with one call and then no results with another, and switch between the two
         list_server_directory_content(buf, sockfd, serverlen, serveraddr);
       }else if (strncmp(buf, "get", 3 )== 0){
         get_file_from_server_directory(buf, sockfd, serverlen, serveraddr, n, position, filename, fp);
@@ -232,8 +205,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-
-
-// gcc udp_client.c -o client -g
-
-// gdb --args ./client 127.0.0.1 5001
