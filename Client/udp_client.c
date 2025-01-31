@@ -76,11 +76,8 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "w");
 
-  
-  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen); 
   if (n < 0) error("ERROR in sendto\n");
-
-  bzero(buf, BUFSIZE);
 
   while (1) {
     bzero(buf, BUFSIZE);
@@ -100,26 +97,55 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
 
 
   }
-  
+
+  bzero(buf, BUFSIZE);
   bzero(filename, FILENAMESIZE);
   fclose(fp);
   return 0;
 }
 
 int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n, int position, char filename[FILENAMESIZE], FILE *fp){
+  int total_bytes_sent_during_one_read; 
+  int bytes_remaining;
+  int bytes_read;
+  int bytes_from_server_ack;
+  char server_ack[20];  
+  
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-
   fp = fopen(filename, "r");
-  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
+  n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen); //Telling Server it is going to be put
   
   bzero(buf, BUFSIZE);
 
-  while (fgets(buf, BUFSIZE, fp)){          
-    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-    if (n < 0) error("ERROR in sendto\n");          
+  //CITATION: Influenced by Beej sendall example
+  while (1){
+    bytes_read = fread(buf, 1, BUFSIZE, fp);
+    if (bytes_read < 1) break;
+    total_bytes_sent_during_one_read = 0;
+    bytes_remaining = bytes_read;
+    
+    while (total_bytes_sent_during_one_read < bytes_read) {
+      n = sendto(sockfd, buf+total_bytes_sent_during_one_read, bytes_remaining, 0, (struct sockaddr *) &serveraddr, serverlen);
+      if (n < 0) {
+        error("ERROR in put sendto\n");
+        break;
+      } 
+
+      total_bytes_sent_during_one_read = total_bytes_sent_during_one_read + n;
+      bytes_remaining = bytes_remaining - n;
+      bytes_from_server_ack = recvfrom(sockfd, server_ack, 20, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
+      
+      bzero(server_ack, 20);
+
+    }
+
     bzero(buf, BUFSIZE);
   } 
+
+
+
+
 
   fclose(fp);
   strcpy(buf, "end");

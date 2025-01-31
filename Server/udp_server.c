@@ -130,40 +130,33 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
 }
 
 int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[FILENAMESIZE], FILE *fp){
-
-  printf("in put\n");
+  char server_ack[20];
+  int server_ack_bytes_sent;
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  fp = fopen(filename, "w");
-  
-  if (n < 0){ 
-    error("ERROR in sendto\n");
-  }
-  bzero(buf, BUFSIZE);
+  fp = fopen(filename, "w"); //need to error check fp
 
   while (1) {
+    bzero(buf, BUFSIZE);
+
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
-    
-    if (n < 0){ 
-      error("ERROR in recvfrom\n");
-    }
-    
-    // printf("Value Being Read from File: %s", buf);
+    if (n < 0) error("ERROR in recvfrom\n");
     
     if (strcmp(buf, "end") == 0) {
       printf("\n");
       break;
     }
-    
-    fputs(buf, fp);
-    // fwrite(buf,BUFSIZE, 1, fp);
-    bzero(buf, BUFSIZE);
 
+    fwrite(buf, 1, n, fp);
+    sprintf(server_ack, "Received: %d", n);
+
+    server_ack_bytes_sent = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    if (server_ack_bytes_sent < 0) error("ERROR in sending server ack\n");
   }
-  
-  fclose(fp);
-  bzero(filename, FILENAMESIZE);
 
+  bzero(buf, BUFSIZE);
+  bzero(filename, FILENAMESIZE);
+  fclose(fp);
   return 0;
 }
 
