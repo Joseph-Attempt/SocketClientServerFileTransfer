@@ -41,32 +41,27 @@ int list_server_directory_content(char buf[BUFSIZE], int sockfd, int clientlen, 
   fp = popen("ls", "r");
   
   if(!fp) {
-      fprintf(stderr, "Error attempting to use ls.\n");
-      return 1;
+    error("Error attempting popen ls.\n");
+    return 1;
   }
 
   bzero(buf, BUFSIZE);
 
-  while (fgets(buf, BUFSIZE, fp) != NULL) {
-      printf("looking at service side buf when ls: %s", buf);
-      n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-      printf("Bytes Sent over: %d\n",n);
-      if (n < 0) {
-        error("ERROR in sendto\n");
-      } 
-      bzero(buf, BUFSIZE);
+  while (fgets(buf, BUFSIZE, fp) != NULL) {  
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    if (n < 0)  error("ERROR in sendto\n");
+  
+    bzero(buf, BUFSIZE);
   }
   
   strcpy(buf, "end");
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-  if (n < 0) {
-    error("ERROR in sendto\n");
-  } 
+  if (n < 0) error("ERROR in sendto\n");
+ 
   bzero(buf, BUFSIZE);
 
-
   if (pclose(fp) == -1) {
-    fprintf(stderr," Error!\n");
+    error("Error attempting to close popen\n");
     return 1;
   }
 
@@ -84,8 +79,21 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  fp = fopen(filename, "r");
   bzero(buf, BUFSIZE);
+
+  fp = fopen(filename, "r");
+
+  if (fp == NULL) {
+    strcpy(buf, "error opening file on the server\n");
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);    
+    bzero(buf, BUFSIZE);
+    bzero(filename, FILENAMESIZE);
+    return 1; 
+  } else {
+    strcpy(buf, "success opening file");
+    n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
+    bzero(buf, BUFSIZE);
+  }
 
   while (1){
     bytes_read = fread(buf, 1, BUFSIZE, fp);
@@ -106,7 +114,6 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
 
       total_bytes_sent_during_one_read = total_bytes_sent_during_one_read + n;
       bytes_remaining = bytes_remaining - n;
-      printf("n: %d, bytes_remaning: %d, total bytes over one read: %d, bytes_read: %d\n", n, bytes_remaining, total_bytes_sent_during_one_read, bytes_read);
       
       bytes_from_client_ack = recvfrom(sockfd, client_ack, 20, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
       
@@ -117,14 +124,13 @@ int get_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
     bzero(buf, BUFSIZE);
   } 
   
-  fclose(fp);
   strcpy(buf, "end");
-  
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
-  if (n < 0) error("ERROR in sendto\n");
+  if (n < 0) fprintf(stderr, "%s","ERROR in sendto\n");
   
   bzero(buf, BUFSIZE);
   bzero(filename, FILENAMESIZE);
+  if (fclose(fp) !=0) fprintf(stderr, "%s", "Error closing the file");
 
   return 0;
 }
@@ -134,12 +140,12 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
   int server_ack_bytes_sent;
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  fp = fopen(filename, "w"); //need to error check fp
+  fp = fopen(filename, "w"); 
 
   while (1) {
     bzero(buf, BUFSIZE);
 
-    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); //remove confirmation
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen); 
     if (n < 0) error("ERROR in recvfrom\n");
     
     if (strcmp(buf, "end") == 0) {
@@ -163,23 +169,19 @@ int put_file_in_server_directory(char buf[], int sockfd, int clientlen, struct s
 int delete_file_in_server_directory(char buf[], int sockfd, int clientlen, struct sockaddr_in clientaddr, int n, int position, int file_status, char filename[FILENAMESIZE]){
   position = 7;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  printf("filename: %s\n", filename);
   file_status = remove(filename);
   bzero(buf, BUFSIZE);
 
-  
-  if (file_status !=0) {
-    strcpy(buf, "Failed to remove the file ");
-    printf("Failed to remove the file %s\n", filename);
+  if (file_status !=0){
+    strcpy(buf, "Failed to remove the file. File may not exist or there may be some other issue.");
   }else {
-    strcpy(buf, "Failed to remove the file ");
-    printf("Succeeded in removing file %s\n", filename);
+    strcpy(buf, "Succeded in removing file");
   }
 
-  //I should send a message back saying it has been deleted
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, clientlen);
   if (n < 0) error("ERROR in sendto\n");
-  
+
+  if (strcmp(buf, "Failed to remove the file. File may not exist or there may be some other issue.")) return 1;
   bzero(buf, BUFSIZE);
   bzero(filename, FILENAMESIZE);
   return 0;
@@ -233,7 +235,7 @@ int main(int argc, char **argv) {
 
   //bind: associate the parent socket with a port 
   if (bind(sockfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0) error("ERROR on binding\n");
-
+  
   clientlen = sizeof(clientaddr);
 
   while (1) {
@@ -241,8 +243,6 @@ int main(int argc, char **argv) {
     
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, &clientlen);
     if (n < 0) error("ERROR in recvfrom\n");
-
-
  
     hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);// gethostbyaddr: determine who sent the datagram
     if (hostp == NULL) error("ERROR on gethostbyadd\n");
@@ -262,9 +262,11 @@ int main(int argc, char **argv) {
       delete_file_in_server_directory(buf, sockfd, clientlen, clientaddr,  n, position, file_status,  filename);
     }
     
-    printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
-    printf("server received %ld/%d bytes: %s\n", strlen(buf), n, buf);
+    bzero(buf, BUFSIZE);
+    bzero(filename, FILENAMESIZE);    
     
 
   }
+
+  return 0;
 }

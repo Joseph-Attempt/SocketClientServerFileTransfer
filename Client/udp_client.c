@@ -14,7 +14,6 @@
 #define BUFSIZE 1500
 #define FILENAMESIZE 40
 
-//NOTE: NEED TO BZERO OUT MORE DURING PUT, GET, DELETE due to writing into text files
 
 /* 
  * error - wrapper for perror
@@ -74,17 +73,25 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
   int client_ack_bytes_sent;
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
-  fp = fopen(filename, "w");
 
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen); 
   if (n < 0) error("ERROR in sendto\n");
+  n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
+  if (n < 0) error("ERROR in recvfrom\n");
+  
+  if (strcmp(buf, "error opening file on the server\n") == 0){
+    bzero(buf, BUFSIZE);
+    bzero(filename, FILENAMESIZE);
+    fprintf(stderr, "%s", "File could not be opened on the server\n");
+    return 1;
+  }
 
+  fp = fopen(filename, "w");
   while (1) {
     bzero(buf, BUFSIZE);
-
     n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
     if (n < 0) error("ERROR in recvfrom\n");
-    
+
     if (strcmp(buf, "end") == 0) {
       printf("\n");
       break;
@@ -92,15 +99,18 @@ int get_file_from_server_directory(char buf[BUFSIZE], int sockfd, int serverlen,
 
     fwrite(buf, 1, n, fp);
     sprintf(client_ack, "Received: %d", n);
-
     client_ack_bytes_sent = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-
-
   }
 
   bzero(buf, BUFSIZE);
   bzero(filename, FILENAMESIZE);
-  fclose(fp);
+  
+  if (fclose(fp) !=0){ 
+    fprintf(stderr, "%s", "Error closing the file\n");
+  }else {
+    printf("The file transfer was complete!\n");
+  }
+
   return 0;
 }
 
@@ -114,8 +124,16 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
   position = 4;
   strncpy(filename, buf + position, strlen(buf) - position + 1);
   fp = fopen(filename, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "%s", "Error opening the file\n");    
+    bzero(buf, BUFSIZE);
+    bzero(filename, FILENAMESIZE);
+    return 1;
+  }
+
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen); //Telling Server it is going to be put
-  
+  if (n < 0) error("ERROR sending data in put functionality\n");
+
   bzero(buf, BUFSIZE);
 
   //CITATION: Influenced by Beej sendall example
@@ -143,11 +161,6 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
     bzero(buf, BUFSIZE);
   } 
 
-
-
-
-
-  fclose(fp);
   strcpy(buf, "end");
   
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
@@ -155,16 +168,21 @@ int put_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, s
 
   bzero(buf, BUFSIZE);
   bzero(filename, FILENAMESIZE);
+  if (fclose(fp) !=0){ 
+    fprintf(stderr, "%s", "Error closing the file\n");
+  }else {
+    printf("The file transfer was complete!\n");
+  }
 
   return 0;
 }
 
 int delete_file_in_server_directory(char buf[BUFSIZE], int sockfd, int serverlen, struct sockaddr_in serveraddr, int n){
   n = sendto(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, serverlen);
-  if (n < 0) error("ERROR in sendto\n");
+  if (n < 0) error("ERROR in sending the file name to be deleted to the server\n");
   
   n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &serveraddr, &serverlen); //remove confirmation
-  if (n < 0) error("ERROR in recvfrom\n");
+  if (n < 0) error("ERROR in receiving acknowledgement that the file was deleted\n");
 
   printf("Message from Server: %s\n", buf);
   return 0;
@@ -181,6 +199,9 @@ int main(int argc, char **argv) {
     char filename[FILENAMESIZE];
     int file_status;
     FILE *fp; 
+    struct timeval timeout;
+    timeout.tv_sec = 10;
+    timeout.tv_usec = 0;
 
     if (argc != 3) {
        fprintf(stderr,"usage: %s <hostname> <port>\n", argv[0]);
@@ -192,6 +213,8 @@ int main(int argc, char **argv) {
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
     if (sockfd < 0) error("ERROR opening socket\n");
+    //CITATION: https://www.youtube.com/watch?v=bA1VMjShQUk
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     
     server = gethostbyname(hostname);// gethostbyname: get the server's DNS entry 
@@ -210,7 +233,7 @@ int main(int argc, char **argv) {
     serverlen = sizeof(serveraddr);//htons converts a 16 bit # from host byte order to netork byte order
 
     bzero(buf, BUFSIZE);
-    
+
     //Displaying menu and implementing user choice
     while (1) {
       display_menu();
@@ -228,6 +251,8 @@ int main(int argc, char **argv) {
         put_file_in_server_directory(buf, sockfd, serverlen, serveraddr, n, position, filename, fp);
       }else if (strncmp(buf, "delete", 6) == 0){
         delete_file_in_server_directory(buf, sockfd, serverlen, serveraddr, n);
+      }else {
+        printf("\nYou have not entered a valid option. Please try again with the only a space between one of the five options and the file name. \nPlease ensure your file name does not have whitespaces in it. Thank you!\n");
       }
     
     }
